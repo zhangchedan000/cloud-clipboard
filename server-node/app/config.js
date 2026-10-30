@@ -26,7 +26,7 @@ if (!process.argv[2] && !fs.existsSync(defaultConfigPath)) {
         file: {
             expire: 3600,
             chunk: 2097152,
-            limit: 268435456,
+            limit: 0,
         },
     }, null, 4));
 }
@@ -69,6 +69,10 @@ if (config.server.auth === true) {
 }
 if (config.server.auth) {
     config.server.auth = config.server.auth.toString();
+}
+// file.limit 填 0（或不填）表示不限制文件大小
+if (!(config.file.limit > 0)) {
+    config.file.limit = Number.MAX_SAFE_INTEGER;
 }
 
 export default config;
