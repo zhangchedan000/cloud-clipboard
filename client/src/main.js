@@ -11,6 +11,7 @@ import {
     prettyFileSize,
     percentage,
     formatTimestamp,
+    clientId,
 } from './util';
 
 import 'typeface-roboto/index.css';
@@ -46,6 +47,7 @@ const app = new Vue({
             },
             received: [],
             device: [],
+            clientId,
         };
     },
     router,
@@ -88,6 +90,7 @@ const app = new Vue({
 })
 
 axios.interceptors.request.use(config => {
+    config.headers['X-Client-Id'] = clientId;
     if (app.authCode) {
         config.headers.Authorization = `Bearer ${app.authCode}`;
     }

@@ -30,6 +30,18 @@ const saveHistory = () => fs.promises.writeFile(historyPath, JSON.stringify({
     receive: messageQueue.queue.filter(e => e.event === 'receive').filter(e => e.data.type !== 'file' || e.data.expire > Date.now() / 1e3).map(e => e.data),
 }));
 
+/**
+ * 消息的发送时间和发送设备，用于聊天界面的时间分隔和左右区分
+ * @param {import('koa').Context} ctx
+ */
+const messageMeta = ctx => {
+    const sender = ctx.get('x-client-id');
+    return {
+        time: Math.round(Date.now() / 1000),
+        ...(/^[0-9a-z-]{8,64}$/i.test(sender) ? {sender} : {}),
+    };
+};
+
 /** @type {import('koa').Middleware} */
 const authMiddleware = async (ctx, next) => {
     if (config.server.auth) {
@@ -85,6 +97,7 @@ router.post(
                 id: messageQueue.counter,
                 type: 'text',
                 room: ctx.query.room || '',
+                ...messageMeta(ctx),
                 content: body,
             },
         };
@@ -173,6 +186,7 @@ router.post(
                     id: -1, // 在生成缩略图之后进队列之前再设定
                     type: 'file',
                     room: ctx.query.room || '',
+                    ...messageMeta(ctx),
                     name: file.name,
                     size: file.size,
                     cache: file.uuid,
@@ -254,6 +268,7 @@ router.post('/upload/finish/:uuid([0-9a-f]{32})', authMiddleware, async ctx => {
                 id: -1, // 在生成缩略图之后进队列之前再设定
                 type: 'file',
                 room: ctx.query.room || '',
+                ...messageMeta(ctx),
                 name: file.name,
                 size: file.size,
                 cache: file.uuid,

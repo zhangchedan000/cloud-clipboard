@@ -19,6 +19,8 @@ Vue.use(Vuetify, {
 Vue.use(VuetifyToast, {
     $vuetify: vuetify.framework,
     x: '',
+    // 提示放在顶部，不挡住底部的输入框
+    y: 'top',
     color: '',
     closeText: '关闭',
     closeColor: 'accent',

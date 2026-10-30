@@ -1,4 +1,5 @@
-FROM node:22.12-alpine3.21 AS builder
+# 前端构建产物与平台无关，在构建机本身的平台上编译，多架构构建时不用走 QEMU
+FROM --platform=$BUILDPLATFORM node:22.12-alpine3.21 AS builder
 ENV NODE_OPTIONS=--openssl-legacy-provider
 COPY . /app
 WORKDIR /app/client

@@ -1,5 +1,15 @@
 # cloud-clipboard
 
+> 本仓库 fork 自 [TransparentLC/cloud-clipboard](https://github.com/TransparentLC/cloud-clipboard)，把网页改成了类似微信「文件传输助手」的聊天界面：
+>
+> * 消息按时间从上往下排列，带时间分隔；本机发的在右边（绿色气泡），其他设备发的在左边
+> * 文件拖进页面任意位置松手即发送，Ctrl+V 粘贴截图/文件也直接发送
+> * Enter 发送，Shift+Enter 换行；图片直接显示，点击看大图
+> * 复制、下载、复制链接、删除放进右键菜单（手机上长按）
+> * 手机端仿微信手机版：底部输入框 +「+」面板（相册、拍摄、文件）
+>
+> Docker 镜像：`ghcr.io/zhangchedan000/cloud-clipboard:latest`（推送到 master 后由 GitHub Actions 自动构建，支持 amd64/arm64）
+
 因为不想为了手机和电脑互传文件这种小事就扫🐴登录某个辣鸡 APP，而自己折腾出来的一个在线剪贴板。
 
 * 支持**传输纯文本**和**一键复制**

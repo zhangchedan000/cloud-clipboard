@@ -36,6 +36,10 @@ app.use(async (ctx, next) => {
 app.use(koaCompress());
 app.use(koaMount(config.server.prefix + '/', koaStatic(path.join(path.dirname(url.fileURLToPath(import.meta.url)), 'static'), {
     maxage: 30 * 24 * 60 * 60 * 1000,
+    // index.html 不能长期缓存，否则更新后浏览器还会打开旧页面；其他文件名里带哈希，可以长期缓存
+    setHeaders: (res, filePath) => {
+        if (path.basename(filePath).startsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+    },
 })));
 app.use(httpRouter.routes());
 app.use(httpRouter.allowedMethods());

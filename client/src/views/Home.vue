@@ -1,120 +1,530 @@
 <template>
-    <v-container>
-        <v-row>
-            <v-col cols="12" md="4" class="hidden-sm-and-down">
-                <send-text></send-text>
-                <v-divider class="my-4"></v-divider>
-                <send-file></send-file>
-            </v-col>
-            <v-col cols="12" md="8">
-                <v-fade-transition group>
-                    <div :is="`received-${item.type}`" v-for="item in $root.received" :key="item.id" :meta="item"></div>
-                </v-fade-transition>
-                <div class="text-center caption text--secondary py-2">{{$root.received.length ? '已经到底了哦～' : '这里空空的'}}</div>
-            </v-col>
-        </v-row>
+    <div class="chat" :class="{'chat--dark': $vuetify.theme.dark, 'chat--mobile': mobile}">
+        <!-- 消息列表 -->
+        <div ref="list" class="chat-list" @scroll="onScroll">
+            <div class="chat-inner">
+                <div v-if="!items.length" class="chat-empty">还没有消息，发一条试试，或者把文件拖进来</div>
+                <template v-for="item in items">
+                    <div v-if="item.timeText" :key="`t${item.key}`" class="chat-time">{{item.timeText}}</div>
+                    <chat-message
+                        :key="item.key"
+                        :meta="item.meta"
+                        :self="item.self"
+                        @menu="openMenu"
+                        @preview="previewImage"
+                        @media-load="onMediaLoad"
+                    ></chat-message>
+                </template>
+            </div>
+        </div>
 
-        <v-speed-dial
-            v-model="fab"
-            bottom
-            right
-            fixed
-            direction="top"
-            transition="scale-transition"
-            class="hidden-md-and-up"
-            style="transform:translateY(-64px)"
-        >
-            <template v-slot:activator>
-                <v-btn
-                    v-model="fab"
-                    fab
-                    dark
-                    color="primary"
-                >
-                    <v-icon>{{mdiPlus}}</v-icon>
+        <div v-if="unread" class="chat-unread" @click="scrollToBottom(true)">
+            <v-icon small color="#07c160">{{mdiChevronDoubleDown}}</v-icon>
+            {{unread}} 条新消息
+        </div>
+
+        <!-- 电脑端输入区：和微信电脑版一样，工具栏 + 大文本框 + 右下角发送 -->
+        <div v-if="!mobile" class="chat-input">
+            <div class="chat-input-inner">
+                <div class="chat-toolbar">
+                    <v-tooltip top>
+                        <template v-slot:activator="{ on }">
+                            <v-btn v-on="on" icon small @click="$refs.fileInput.click()">
+                                <v-icon>{{mdiFolderOutline}}</v-icon>
+                            </v-btn>
+                        </template>
+                        <span>发送文件（也可以直接拖进来或 Ctrl+V 粘贴）</span>
+                    </v-tooltip>
+                </div>
+                <textarea
+                    ref="textarea"
+                    v-model="text"
+                    class="chat-textarea"
+                    :maxlength="$root.config.text.limit || null"
+                    @keydown.enter="onEnter"
+                ></textarea>
+                <div class="chat-send-row">
+                    <span class="chat-hint">Enter 发送，Shift + Enter 换行</span>
+                    <button
+                        class="chat-send"
+                        :class="{'chat-send--active': canSendText}"
+                        :disabled="!canSendText"
+                        @click="sendText"
+                    >发送(S)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 手机端输入区：和微信手机版一样，输入框 + 「+」面板 -->
+        <div v-else class="chat-input-mobile">
+            <div class="chat-input-mobile-bar">
+                <textarea
+                    ref="textarea"
+                    v-model="text"
+                    rows="1"
+                    class="chat-textarea-mobile"
+                    enterkeyhint="send"
+                    :maxlength="$root.config.text.limit || null"
+                    @keydown.enter="onEnter"
+                    @input="autoGrow"
+                    @focus="panel = false"
+                ></textarea>
+                <button v-if="text.trim()" class="chat-send chat-send--active" @click="sendText">发送</button>
+                <v-btn v-else icon @click="togglePanel">
+                    <v-icon large>{{panel ? mdiCloseCircleOutline : mdiPlusCircleOutline}}</v-icon>
                 </v-btn>
-            </template>
-            <v-btn fab dark small color="primary" @click="dialog = true; mode = 'file'; setTimeout(() => $refs.dialogFile.focus(), 300)">
-                <v-icon>{{mdiFileDocumentOutline}}</v-icon>
-            </v-btn>
-            <v-btn fab dark small color="primary" @click="dialog = true; mode = 'text'; setTimeout(() => $refs.dialogText.focus(), 300)">
-                <v-icon>{{mdiText}}</v-icon>
-            </v-btn>
-        </v-speed-dial>
-        <v-dialog
-            v-model="dialog"
-            fullscreen
-            hide-overlay
-            transition="dialog-bottom-transition"
-            scrollable
+            </div>
+            <div v-if="panel" class="chat-panel">
+                <div class="chat-panel-item" @click="$refs.albumInput.click()">
+                    <div class="chat-panel-icon"><v-icon>{{mdiImageOutline}}</v-icon></div>
+                    <div>相册</div>
+                </div>
+                <div class="chat-panel-item" @click="$refs.cameraInput.click()">
+                    <div class="chat-panel-icon"><v-icon>{{mdiCameraOutline}}</v-icon></div>
+                    <div>拍摄</div>
+                </div>
+                <div class="chat-panel-item" @click="$refs.fileInput.click()">
+                    <div class="chat-panel-icon"><v-icon>{{mdiFolderOutline}}</v-icon></div>
+                    <div>文件</div>
+                </div>
+            </div>
+        </div>
+
+        <input ref="fileInput" type="file" multiple class="d-none" @change="onPick">
+        <input ref="albumInput" type="file" multiple accept="image/*,video/*" class="d-none" @change="onPick">
+        <input ref="cameraInput" type="file" accept="image/*" capture="environment" class="d-none" @change="onPick">
+
+        <!-- 拖文件进来时的遮罩 -->
+        <div v-if="dragging" class="chat-drop">
+            <div class="chat-drop-text">松开即可发送</div>
+        </div>
+
+        <!-- 右键 / 长按菜单 -->
+        <v-menu
+            v-model="menu.show"
+            :position-x="menu.x"
+            :position-y="menu.y"
+            absolute
+            offset-y
+            min-width="120"
         >
-            <v-card>
-                <v-toolbar dark color="primary" class="flex-grow-0">
-                    <v-btn icon @click="dialog = false">
-                        <v-icon>{{mdiClose}}</v-icon>
-                    </v-btn>
-                    <v-toolbar-title v-if="mode === 'text'">发送文本</v-toolbar-title>
-                    <v-toolbar-title v-if="mode === 'file'">发送文件</v-toolbar-title>
-                    <v-spacer></v-spacer>
-                </v-toolbar>
-                <v-card-text class="px-4">
-                    <div class="my-4">
-                        <send-text ref="dialogText" v-if="mode === 'text'"></send-text>
-                        <send-file ref="dialogFile" v-if="mode === 'file'"></send-file>
-                    </div>
-                </v-card-text>
-            </v-card>
-        </v-dialog>
-    </v-container>
+            <v-list dense>
+                <v-list-item v-for="action in menuActions" :key="action.label" @click="action.run">
+                    <v-list-item-title :class="{'error--text': action.danger}">{{action.label}}</v-list-item-title>
+                </v-list-item>
+            </v-list>
+        </v-menu>
+
+        <!-- 看大图 -->
+        <v-overlay :value="!!viewer" opacity="0.92" z-index="20" @click.native="viewer = null">
+            <img v-if="viewer" :src="viewer.url" :alt="viewer.name" class="chat-viewer-img">
+            <div v-if="viewer" class="chat-viewer-actions" @click.stop>
+                <v-btn text dark :href="viewer.url" :download="viewer.name">
+                    <v-icon left>{{mdiDownload}}</v-icon>下载
+                </v-btn>
+                <v-btn text dark @click="viewer = null">
+                    <v-icon left>{{mdiClose}}</v-icon>关闭
+                </v-btn>
+            </div>
+        </v-overlay>
+    </div>
 </template>
 
 <script>
-import SendText from '@/components/SendText.vue';
-import SendFile from '@/components/SendFile.vue';
-import ReceivedText from '@/components/received-item/Text.vue';
-import ReceivedFile from '@/components/received-item/File.vue';
+import ChatMessage from '@/components/ChatMessage.vue';
 import {
-    mdiPlus,
-    mdiFileDocumentOutline,
-    mdiText,
+    prettyFileSize,
+    formatChatTime,
+    copyToClipboard,
+    unescapeHtml,
+} from '@/util.js';
+import {
+    uploadFile,
+} from '@/upload.js';
+import {
+    mdiFolderOutline,
+    mdiPlusCircleOutline,
+    mdiCloseCircleOutline,
+    mdiImageOutline,
+    mdiCameraOutline,
+    mdiChevronDoubleDown,
+    mdiDownload,
     mdiClose,
 } from '@mdi/js';
 
+// 两条消息间隔超过 5 分钟才显示时间，和微信一样
+const TIME_GAP = 300;
+
+let uploadKey = 0;
+
+const coarsePointer = matchMedia('(pointer: coarse)').matches;
+
 export default {
     components: {
-        SendText,
-        SendFile,
-        ReceivedText,
-        ReceivedFile,
+        ChatMessage,
     },
     data() {
         return {
-            fab: false,
-            dialog: false,
-            mode: null,
-            mdiPlus,
-            mdiFileDocumentOutline,
-            mdiText,
+            text: '',
+            panel: false,
+            dragging: false,
+            dragDepth: 0,
+            atBottom: true,
+            unread: 0,
+            newestId: null,
+            uploads: [],
+            uploadRunning: false,
+            menu: {
+                show: false,
+                x: 0,
+                y: 0,
+                meta: null,
+            },
+            viewer: null,
+            mdiFolderOutline,
+            mdiPlusCircleOutline,
+            mdiCloseCircleOutline,
+            mdiImageOutline,
+            mdiCameraOutline,
+            mdiChevronDoubleDown,
+            mdiDownload,
             mdiClose,
         };
     },
-    methods: {
-        closeDialog() {
-            this.dialog = false;
+    computed: {
+        // 手机、平板等触屏设备，或者窗口很窄时用手机版输入区
+        mobile() {
+            return this.$vuetify.breakpoint.xsOnly || coarsePointer;
         },
-        setTimeout(f, t) {
-            return setTimeout(f, t);
+        canSendText() {
+            return !!this.text.trim() && !!this.$root.websocket;
+        },
+        items() {
+            const result = [];
+            let lastTime = null;
+            // $root.received 是新的在前，聊天界面要旧的在前
+            for (let i = this.$root.received.length - 1; i >= 0; i--) {
+                const meta = this.$root.received[i];
+                const time = this.messageTime(meta);
+                let timeText = null;
+                if (time && (lastTime === null || time - lastTime > TIME_GAP)) {
+                    timeText = formatChatTime(time);
+                }
+                if (time) lastTime = time;
+                result.push({
+                    key: `m${meta.id}`,
+                    meta,
+                    self: !!meta.sender && meta.sender === this.$root.clientId,
+                    timeText,
+                });
+            }
+            this.uploads.forEach(e => result.push({
+                key: `u${e.key}`,
+                meta: e,
+                self: true,
+                timeText: null,
+            }));
+            return result;
+        },
+        menuActions() {
+            const meta = this.menu.meta;
+            if (!meta) return [];
+            const actions = [];
+            if (meta.type === 'uploading') {
+                if (meta.status === 'error') actions.push({label: '重新发送', run: () => this.retryUpload(meta)});
+                actions.push({label: '删除', danger: true, run: () => this.removeUpload(meta)});
+                return actions;
+            }
+            if (meta.type === 'text') {
+                actions.push({label: '复制', run: () => this.copy(unescapeHtml(meta.content))});
+            }
+            if (meta.type === 'file' && Date.now() / 1000 <= meta.expire) {
+                const url = `file/${meta.cache}/${encodeURIComponent(meta.name)}`;
+                if (meta.thumbnail) actions.push({label: '查看大图', run: () => this.previewImage(meta)});
+                actions.push({label: '下载', run: () => this.download(url, meta.name)});
+            }
+            actions.push({label: '复制链接', run: () => this.copy(this.contentLink(meta))});
+            actions.push({label: '删除', danger: true, run: () => this.deleteMessage(meta)});
+            return actions;
         },
     },
     watch: {
-        dialog(newval) {
-            if (newval) {
-                history.pushState(null, null, location.href);
-                addEventListener('popstate', this.closeDialog);
+        '$root.received'(received) {
+            const newest = received[0];
+            if (!newest || newest.id === this.newestId) return;
+            const firstLoad = this.newestId === null;
+            this.newestId = newest.id;
+            // 刚打开、自己发的、或者本来就在底部，就跟着滚到底；否则提示有新消息
+            if (firstLoad || this.atBottom || newest.sender === this.$root.clientId) {
+                this.scrollToBottom();
             } else {
-                removeEventListener('popstate', this.closeDialog);
+                this.unread++;
             }
         },
+        'uploads.length'(newval, oldval) {
+            if (newval > oldval) this.scrollToBottom();
+        },
+    },
+    methods: {
+        messageTime(meta) {
+            if (meta.time) return meta.time;
+            // 旧版本没有记录发送时间，文件可以从过期时间倒推
+            if (meta.type === 'file' && meta.expire && this.$root.config.file.expire) {
+                return meta.expire - this.$root.config.file.expire;
+            }
+            return null;
+        },
+        onScroll() {
+            const list = this.$refs.list;
+            this.atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+            if (this.atBottom) this.unread = 0;
+        },
+        scrollToBottom(smooth = false) {
+            this.$nextTick(() => {
+                const list = this.$refs.list;
+                if (!list) return;
+                list.scrollTo({top: list.scrollHeight, behavior: smooth ? 'smooth' : 'auto'});
+                this.atBottom = true;
+                this.unread = 0;
+            });
+        },
+        onMediaLoad() {
+            // 图片加载出来后高度变了，原本在底部就继续保持在底部
+            if (this.atBottom) this.scrollToBottom();
+        },
+        errorText(error, prefix) {
+            return error.response && error.response.data && error.response.data.msg
+                ? `${prefix}：${error.response.data.msg}`
+                : prefix;
+        },
+
+        // ---------- 文本 ----------
+        onEnter(e) {
+            // Shift+Enter 换行；输入法正在选词时的回车也不发送
+            if (e.shiftKey || e.isComposing || e.keyCode === 229) return;
+            e.preventDefault();
+            this.sendText();
+        },
+        autoGrow() {
+            const el = this.$refs.textarea;
+            if (!el) return;
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        },
+        async sendText() {
+            const text = this.text;
+            if (!text.trim()) return;
+            if (!this.$root.websocket) {
+                this.$toast('还没有连接到服务器');
+                return;
+            }
+            if (text.length > this.$root.config.text.limit) {
+                this.$toast(`文本长度不能超过 ${this.$root.config.text.limit} 字`);
+                return;
+            }
+            this.text = '';
+            this.$nextTick(this.autoGrow);
+            try {
+                await this.$http.post('text', text, {
+                    params: new URLSearchParams([['room', this.$root.room]]),
+                    headers: {'Content-Type': 'text/plain'},
+                });
+            } catch (error) {
+                // 发送失败就把文字放回输入框，免得丢
+                if (!this.text) this.text = text;
+                this.$toast(this.errorText(error, '发送失败'));
+            }
+        },
+
+        // ---------- 文件 ----------
+        onPick(e) {
+            this.sendFiles(Array.from(e.target.files));
+            e.target.value = '';
+            this.panel = false;
+        },
+        /** @param {File[]} files */
+        sendFiles(files) {
+            files.forEach(file => {
+                if (!file.size) {
+                    this.$toast(`不能发送空文件或文件夹：${file.name}`);
+                } else if (file.size > this.$root.config.file.limit) {
+                    this.$toast(`${file.name} 超过大小限制（${prettyFileSize(this.$root.config.file.limit)}）`);
+                } else {
+                    this.uploads.push({
+                        type: 'uploading',
+                        key: ++uploadKey,
+                        name: file.name || '粘贴的图片.png',
+                        size: file.size,
+                        loaded: 0,
+                        status: 'waiting',
+                        file,
+                    });
+                }
+            });
+            this.runUploads();
+        },
+        // 一个一个按顺序上传，保证消息顺序和拖进来的顺序一致
+        async runUploads() {
+            if (this.uploadRunning) return;
+            this.uploadRunning = true;
+            try {
+                let item;
+                while ((item = this.uploads.find(e => e.status === 'waiting'))) {
+                    item.status = 'uploading';
+                    try {
+                        await uploadFile(item.file, {
+                            room: this.$root.room,
+                            chunkSize: this.$root.config.file.chunk,
+                            onProgress: loaded => item.loaded = loaded,
+                        });
+                        this.uploads.splice(this.uploads.indexOf(item), 1);
+                    } catch (error) {
+                        item.status = 'error';
+                        this.$toast(this.errorText(error, `${item.name} 发送失败`));
+                    }
+                }
+            } finally {
+                this.uploadRunning = false;
+            }
+        },
+        retryUpload(item) {
+            item.status = 'waiting';
+            item.loaded = 0;
+            this.runUploads();
+        },
+        removeUpload(item) {
+            const index = this.uploads.indexOf(item);
+            if (index !== -1) this.uploads.splice(index, 1);
+        },
+        togglePanel() {
+            this.panel = !this.panel;
+            if (this.panel) this.scrollToBottom();
+        },
+
+        // ---------- 拖拽和粘贴 ----------
+        hasFiles(e) {
+            return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+        },
+        onDragEnter(e) {
+            if (!this.hasFiles(e)) return;
+            e.preventDefault();
+            this.dragDepth++;
+            this.dragging = true;
+        },
+        onDragOver(e) {
+            if (!this.hasFiles(e)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        },
+        onDragLeave(e) {
+            if (!this.hasFiles(e)) return;
+            this.dragDepth = Math.max(0, this.dragDepth - 1);
+            if (!this.dragDepth) this.dragging = false;
+        },
+        onDrop(e) {
+            if (!this.hasFiles(e)) return;
+            e.preventDefault();
+            this.dragDepth = 0;
+            this.dragging = false;
+            const items = Array.from(e.dataTransfer.items || []);
+            const files = [];
+            Array.from(e.dataTransfer.files).forEach((file, i) => {
+                const entry = items[i] && items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
+                if (entry && entry.isDirectory) {
+                    this.$toast(`暂不支持发送文件夹：${file.name}`);
+                } else {
+                    files.push(file);
+                }
+            });
+            this.sendFiles(files);
+        },
+        // 拖拽过程中不会触发 mousemove，能收到就说明拖拽已经结束，防止遮罩卡住
+        resetDrag() {
+            if (!this.dragging) return;
+            this.dragDepth = 0;
+            this.dragging = false;
+        },
+        onPaste(e) {
+            if (!e.clipboardData) return;
+            const items = Array.from(e.clipboardData.items);
+            // 同时带文字的（比如从 Excel 复制）当作文字粘贴
+            if (!items.some(e => e.kind === 'file') || items.some(e => e.type === 'text/plain')) return;
+            e.preventDefault();
+            this.sendFiles(items.filter(e => e.kind === 'file').map(e => e.getAsFile()));
+        },
+
+        // ---------- 菜单里的操作 ----------
+        openMenu({x, y, meta}) {
+            this.menu.show = false;
+            this.$nextTick(() => {
+                Object.assign(this.menu, {x, y, meta, show: true});
+            });
+        },
+        contentLink(meta) {
+            const url = new URL(`content/${meta.id}`, location.href);
+            if (this.$root.room) url.searchParams.set('room', this.$root.room);
+            return url.href;
+        },
+        copy(text) {
+            copyToClipboard(text)
+                .then(() => this.$toast('已复制'))
+                .catch(error => this.$toast.error(`复制失败：${error.message || error}`));
+        },
+        download(url, name) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        },
+        previewImage(meta) {
+            this.viewer = {
+                url: `file/${meta.cache}/${encodeURIComponent(meta.name)}`,
+                name: meta.name,
+            };
+        },
+        async deleteMessage(meta) {
+            try {
+                await this.$http.delete(`revoke/${meta.id}`, {
+                    params: new URLSearchParams([['room', this.$root.room]]),
+                });
+                if (meta.type === 'file' && Date.now() / 1000 <= meta.expire) {
+                    await this.$http.delete(`file/${meta.cache}`);
+                }
+            } catch (error) {
+                this.$toast(this.errorText(error, '删除失败'));
+            }
+        },
+        onKeydown(e) {
+            if (e.key === 'Escape' && this.viewer) this.viewer = null;
+            // 电脑端在页面任意位置打字时，自动聚焦到输入框
+            if (!this.mobile && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                const active = document.activeElement;
+                if (!active || !['INPUT', 'TEXTAREA'].includes(active.tagName)) {
+                    this.$refs.textarea && this.$refs.textarea.focus();
+                }
+            }
+        },
+        bindWindowEvents(bind) {
+            const method = bind ? 'addEventListener' : 'removeEventListener';
+            window[method]('dragenter', this.onDragEnter);
+            window[method]('dragover', this.onDragOver);
+            window[method]('dragleave', this.onDragLeave);
+            window[method]('drop', this.onDrop);
+            window[method]('mousemove', this.resetDrag);
+            document[method]('paste', this.onPaste);
+            document[method]('keydown', this.onKeydown);
+        },
+    },
+    activated() {
+        this.bindWindowEvents(true);
+        document.documentElement.classList.add('chat-page');
+        this.scrollToBottom();
+    },
+    deactivated() {
+        this.bindWindowEvents(false);
+        document.documentElement.classList.remove('chat-page');
     },
     beforeRouteEnter(to, from, next) {
         next(vm => vm.$root.room = to.query.room || '');
@@ -123,5 +533,233 @@ export default {
         this.$root.room = to.query.room || '';
         next();
     },
-}
+};
 </script>
+
+<style>
+/* 聊天页面自己滚动，整页不要出滚动条 */
+html.chat-page {
+    overflow: hidden !important;
+}
+</style>
+
+<style scoped>
+.chat {
+    --chat-bg: #f5f5f5;
+    --bubble-self: #95ec69;
+    --bubble-self-text: #191919;
+    --bubble-other: #ffffff;
+    --bubble-other-text: #191919;
+    --text-secondary: #888;
+    --divider: rgba(0, 0, 0, .08);
+    --input-bg: #f5f5f5;
+    --panel-bg: #f7f7f7;
+
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--chat-bg);
+}
+.chat--dark {
+    --chat-bg: #111111;
+    --bubble-self: #3eb575;
+    --bubble-self-text: #0f0f0f;
+    --bubble-other: #2c2c2c;
+    --bubble-other-text: #d5d5d5;
+    --text-secondary: #8c8c8c;
+    --divider: rgba(255, 255, 255, .08);
+    --input-bg: #1e1e1e;
+    --panel-bg: #1e1e1e;
+}
+
+.chat-list {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.chat-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 16px 20px 4px;
+}
+.chat--mobile .chat-inner {
+    padding: 12px 10px 4px;
+}
+.chat-empty {
+    margin-top: 30vh;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.chat-time {
+    margin: 4px 0 16px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.chat-unread {
+    position: absolute;
+    right: 24px;
+    bottom: 200px;
+    padding: 6px 14px;
+    border-radius: 16px;
+    background: var(--bubble-other);
+    color: #07c160;
+    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+    cursor: pointer;
+    z-index: 2;
+}
+.chat--mobile .chat-unread {
+    bottom: 80px;
+    right: 12px;
+}
+
+/* 电脑端输入区 */
+.chat-input {
+    flex: none;
+    height: 180px;
+    border-top: 1px solid var(--divider);
+    background: var(--input-bg);
+}
+.chat-input-inner {
+    max-width: 960px;
+    height: 100%;
+    margin: 0 auto;
+    padding: 6px 20px 12px;
+    display: flex;
+    flex-direction: column;
+}
+.chat-toolbar {
+    flex: none;
+    display: flex;
+    gap: 4px;
+}
+.chat-textarea {
+    flex: 1;
+    width: 100%;
+    margin-top: 4px;
+    resize: none;
+    outline: none;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+}
+.chat-send-row {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+.chat-hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.chat-send {
+    padding: 5px 22px;
+    border-radius: 4px;
+    font-size: 14px;
+    background: var(--divider);
+    color: var(--text-secondary);
+    cursor: default;
+}
+.chat-send--active {
+    background: #07c160;
+    color: #fff;
+    cursor: pointer;
+}
+.chat-send--active:hover {
+    background: #06ad56;
+}
+
+/* 手机端输入区 */
+.chat-input-mobile {
+    flex: none;
+    background: var(--panel-bg);
+    border-top: 1px solid var(--divider);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.chat-input-mobile-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 8px 10px;
+}
+.chat-textarea-mobile {
+    flex: 1;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 9px 10px;
+    border-radius: 4px;
+    resize: none;
+    outline: none;
+    border: none;
+    background: var(--bubble-other);
+    color: inherit;
+    font-size: 16px;
+    line-height: 22px;
+}
+.chat-input-mobile-bar .chat-send {
+    height: 40px;
+    padding: 0 14px;
+}
+.chat-panel {
+    display: flex;
+    gap: 28px;
+    padding: 16px 24px 24px;
+    border-top: 1px solid var(--divider);
+}
+.chat-panel-item {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.chat-panel-icon {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 6px;
+    border-radius: 12px;
+    background: var(--bubble-other);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 拖拽遮罩 */
+.chat-drop {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: rgba(0, 0, 0, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.chat-drop-text {
+    color: #fff;
+    font-size: 18px;
+    letter-spacing: 1px;
+}
+
+/* 看大图 */
+.chat-viewer-img {
+    display: block;
+    max-width: 96vw;
+    max-height: 84vh;
+    object-fit: contain;
+}
+.chat-viewer-actions {
+    margin-top: 12px;
+    text-align: center;
+}
+</style>

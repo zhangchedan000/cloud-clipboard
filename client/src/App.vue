@@ -90,11 +90,14 @@
 
         <v-app-bar
             app
-            color="primary"
-            dark
+            flat
+            dense
+            :color="$vuetify.theme.dark ? '#1f1f1f' : '#ededed'"
+            :dark="$vuetify.theme.dark"
+            class="app-header"
         >
             <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
-            <v-toolbar-title>云剪贴板<span class="d-none d-sm-inline" v-if="$root.room">（房间：<abbr title="点击复制" style="cursor:pointer" @click="navigator.clipboard.writeText($root.room).then(() => $toast(`已复制房间名称：${$root.room}`).catch(err => $toast.error(`复制失败：${err}`)))">{{$root.room}}</abbr>）</span></v-toolbar-title>
+            <v-toolbar-title class="app-title">云剪贴板<span v-if="$root.room">（{{$root.room}}）</span><small v-if="$root.device.length > 1" class="app-online">{{$root.device.length}} 台设备在线</small></v-toolbar-title>
             <v-spacer></v-spacer>
             <v-tooltip left>
                 <template v-slot:activator="{ on }">
@@ -227,6 +230,22 @@
 <style scoped>
 .v-navigation-drawer >>> .v-navigation-drawer__border {
     pointer-events: none;
+}
+.app-header {
+    border-bottom: 1px solid rgba(0, 0, 0, .08) !important;
+}
+.theme--dark .app-header {
+    border-bottom-color: rgba(255, 255, 255, .08) !important;
+}
+.app-title {
+    font-size: 16px !important;
+    font-weight: 500;
+}
+.app-online {
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: normal;
+    opacity: .6;
 }
 </style>
 
