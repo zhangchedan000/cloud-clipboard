@@ -541,6 +541,15 @@ export default {
 html.chat-page {
     overflow: hidden !important;
 }
+/* 宽屏时聊天区是居中的一个窗口，外面的底色和顶栏一样 */
+@media (min-width: 1100px) {
+    html.chat-page #app {
+        background: #ededed !important;
+    }
+    html.chat-page #app.theme--dark {
+        background: #1f1f1f !important;
+    }
+}
 </style>
 
 <style scoped>
@@ -564,6 +573,18 @@ html.chat-page {
     flex-direction: column;
     background: var(--chat-bg);
 }
+@media (min-width: 1100px) {
+    .chat {
+        top: 60px;
+        bottom: 16px;
+        left: calc(50% - 520px);
+        right: calc(50% - 520px);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, .08);
+        border: 1px solid var(--divider);
+    }
+}
 .chat--dark {
     --chat-bg: #111111;
     --bubble-self: #3eb575;
@@ -582,9 +603,7 @@ html.chat-page {
     overscroll-behavior: contain;
 }
 .chat-inner {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 16px 20px 4px;
+    padding: 20px 28px 4px;
 }
 .chat--mobile .chat-inner {
     padding: 12px 10px 4px;
@@ -605,7 +624,7 @@ html.chat-page {
 .chat-unread {
     position: absolute;
     right: 24px;
-    bottom: 200px;
+    bottom: 166px;
     padding: 6px 14px;
     border-radius: 16px;
     background: var(--bubble-other);
@@ -623,15 +642,13 @@ html.chat-page {
 /* 电脑端输入区 */
 .chat-input {
     flex: none;
-    height: 180px;
+    height: 150px;
     border-top: 1px solid var(--divider);
     background: var(--input-bg);
 }
 .chat-input-inner {
-    max-width: 960px;
     height: 100%;
-    margin: 0 auto;
-    padding: 6px 20px 12px;
+    padding: 6px 28px 12px;
     display: flex;
     flex-direction: column;
 }

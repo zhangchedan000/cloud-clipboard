@@ -237,6 +237,11 @@
 .theme--dark .app-header {
     border-bottom-color: rgba(255, 255, 255, .08) !important;
 }
+@media (min-width: 1100px) {
+    .app-header {
+        border-bottom-color: transparent !important;
+    }
+}
 .app-title {
     font-size: 16px !important;
     font-weight: 500;

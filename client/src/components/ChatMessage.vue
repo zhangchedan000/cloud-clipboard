@@ -1,8 +1,14 @@
 <template>
     <div class="msg" :class="{'msg--self': self}">
-        <div class="msg-avatar" :style="{background: avatarColor}">
-            <v-icon dark small>{{self ? mdiAccount : mdiDevices}}</v-icon>
+        <div v-if="self" class="msg-avatar msg-avatar--self">
+            <v-icon dark>{{mdiAccount}}</v-icon>
         </div>
+        <!-- 其他设备发来的消息用「传输助手」的绿色文件夹头像 -->
+        <svg v-else class="msg-avatar" viewBox="0 0 64 64">
+            <rect width="64" height="64" rx="10" fill="#07c160"/>
+            <path fill="#fff" d="M12 19a3 3 0 0 1 3-3h11.2a3 3 0 0 1 2.3 1.1l2.6 3.1H49a3 3 0 0 1 3 3V45a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"/>
+            <path fill="#07c160" d="M24 32.5h11.5v-5.2L45 34.5l-9.5 7.2v-5.2H24z"/>
+        </svg>
         <div
             class="msg-body"
             @contextmenu.prevent="openMenu($event.clientX, $event.clientY)"
@@ -85,7 +91,6 @@
 <script>
 import {
     mdiAccount,
-    mdiDevices,
 } from '@mdi/js';
 const EXT_COLORS = [
     [/^(zip|rar|7z|tar|gz|bz2|xz|tgz)$/, '#a66df2'],
@@ -116,7 +121,6 @@ export default {
             touchTimer: null,
             touchPoint: null,
             mdiAccount,
-            mdiDevices,
         };
     },
     computed: {
@@ -152,13 +156,6 @@ export default {
         isLong() {
             const content = this.meta.content || '';
             return content.length > 1200 || content.split('\n').length > 16;
-        },
-        avatarColor() {
-            if (this.self) return '#07c160';
-            const id = this.meta.sender || '';
-            let hash = 0;
-            for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-            return id ? `hsl(${hash % 360}, 45%, 55%)` : '#9aa5b1';
         },
     },
     methods: {
@@ -207,6 +204,9 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+.msg-avatar--self {
+    background: linear-gradient(135deg, #5b9bf8, #3772e6);
 }
 .msg-body {
     position: relative;
@@ -263,6 +263,13 @@ export default {
 }
 .bubble-text >>> a {
     color: #576b95;
+    text-decoration: none;
+}
+.bubble-text >>> a:hover {
+    text-decoration: underline;
+}
+.msg--self .bubble-text >>> a {
+    color: #2a5a8a;
 }
 .bubble-expand {
     display: block;
