@@ -1,0 +1,12 @@
+services:
+  clipboard:
+    image: ghcr.io/zhangchedan000/cloud-clipboard:latest
+    container_name: cloud-clipboard
+    restart: unless-stopped
+    ports:
+      - "9501:9501"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      # 配置 config.json、聊天记录 history.json、上传的文件 storage/ 都在这里
+      - ./data:/app/data
