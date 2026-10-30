@@ -22,6 +22,14 @@
                         <v-list-item-title>设备列表</v-list-item-title>
                     </v-list-item-content>
                 </v-list-item>
+                <v-list-item link @click="drawer = false; $root.roomInput = $root.room; $root.roomDialog = true">
+                    <v-list-item-action>
+                        <v-icon>{{mdiBulletinBoard}}</v-icon>
+                    </v-list-item-action>
+                    <v-list-item-content>
+                        <v-list-item-title>进入房间</v-list-item-title>
+                    </v-list-item-content>
+                </v-list-item>
                 <v-menu
                     offset-x
                     transition="slide-x-transition"
@@ -310,6 +318,10 @@ export default {
         },
     },
     mounted() {
+        // 电脑端聊天窗口里的按钮（顶栏隐藏时用）
+        this.$root.$on('app:drawer', () => this.drawer = true);
+        this.$root.$on('app:clear', () => this.clearAllDialog = true);
+
         // primary color <==> localStorage
         // theme colors <== localStorage
         const darkPrimary = localStorage.getItem('darkPrimary');

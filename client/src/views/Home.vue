@@ -1,9 +1,36 @@
 <template>
-    <div class="chat" :class="{'chat--dark': $vuetify.theme.dark, 'chat--mobile': mobile}">
+    <div class="chat" :class="{'chat--dark': $vuetify.theme.dark, 'chat--mobile': mobile, 'chat--desktop': !mobile}">
+        <!-- 电脑端：和微信网页版文件传输助手一样，是深色背景上居中的一个窗口，标题栏在窗口里 -->
+        <div v-if="!mobile" class="chat-header">
+            <span class="chat-title">传输助手<template v-if="$root.room">（{{$root.room}}）</template></span>
+            <span v-if="$root.device.length > 1" class="chat-online">{{$root.device.length}} 台设备在线</span>
+            <v-spacer></v-spacer>
+            <v-tooltip bottom>
+                <template v-slot:activator="{ on }">
+                    <v-btn v-on="on" icon small @click="if (!$root.websocket && !$root.websocketConnecting) {$root.retry = 0; $root.connect();}">
+                        <span class="chat-status" :class="{'chat-status--on': $root.websocket, 'chat-status--pending': $root.websocketConnecting}"></span>
+                    </v-btn>
+                </template>
+                <span>{{$root.websocket ? '已连接' : ($root.websocketConnecting ? '连接中' : '未连接，点击重连')}}</span>
+            </v-tooltip>
+            <v-tooltip bottom>
+                <template v-slot:activator="{ on }">
+                    <v-btn v-on="on" icon small @click="$root.$emit('app:clear')"><v-icon small>{{mdiDeleteSweepOutline}}</v-icon></v-btn>
+                </template>
+                <span>清空聊天记录</span>
+            </v-tooltip>
+            <v-tooltip bottom>
+                <template v-slot:activator="{ on }">
+                    <v-btn v-on="on" icon small @click="$root.$emit('app:drawer')"><v-icon small>{{mdiDotsHorizontal}}</v-icon></v-btn>
+                </template>
+                <span>更多</span>
+            </v-tooltip>
+        </div>
+
         <!-- 消息列表 -->
         <div ref="list" class="chat-list" @scroll="onScroll">
             <div class="chat-inner">
-                <div v-if="!items.length" class="chat-empty">还没有消息，发一条试试，或者把文件拖进来</div>
+                <div v-if="!items.length" class="chat-empty">在手机和电脑上打开这个页面，就可以互传文字和文件<br>{{mobile ? '点右下角的「+」发送图片和文件' : '文件直接拖进来即可发送'}}</div>
                 <template v-for="item in items">
                     <div v-if="item.timeText" :key="`t${item.key}`" class="chat-time">{{item.timeText}}</div>
                     <chat-message
@@ -150,6 +177,8 @@ import {
     mdiChevronDoubleDown,
     mdiDownload,
     mdiClose,
+    mdiDeleteSweepOutline,
+    mdiDotsHorizontal,
 } from '@mdi/js';
 
 // 两条消息间隔超过 5 分钟才显示时间，和微信一样
@@ -189,6 +218,8 @@ export default {
             mdiChevronDoubleDown,
             mdiDownload,
             mdiClose,
+            mdiDeleteSweepOutline,
+            mdiDotsHorizontal,
         };
     },
     computed: {
@@ -260,6 +291,9 @@ export default {
             } else {
                 this.unread++;
             }
+        },
+        mobile() {
+            this.setPageClass(true);
         },
         'uploads.length'(newval, oldval) {
             if (newval > oldval) this.scrollToBottom();
@@ -506,6 +540,11 @@ export default {
                 }
             }
         },
+        setPageClass(active) {
+            const cl = document.documentElement.classList;
+            cl.toggle('chat-page', active);
+            cl.toggle('chat-desktop', active && !this.mobile);
+        },
         bindWindowEvents(bind) {
             const method = bind ? 'addEventListener' : 'removeEventListener';
             window[method]('dragenter', this.onDragEnter);
@@ -519,12 +558,12 @@ export default {
     },
     activated() {
         this.bindWindowEvents(true);
-        document.documentElement.classList.add('chat-page');
+        this.setPageClass(true);
         this.scrollToBottom();
     },
     deactivated() {
         this.bindWindowEvents(false);
-        document.documentElement.classList.remove('chat-page');
+        this.setPageClass(false);
     },
     beforeRouteEnter(to, from, next) {
         next(vm => vm.$root.room = to.query.room || '');
@@ -541,14 +580,15 @@ export default {
 html.chat-page {
     overflow: hidden !important;
 }
-/* 宽屏时聊天区是居中的一个窗口，外面的底色和顶栏一样 */
-@media (min-width: 1100px) {
-    html.chat-page #app {
-        background: #ededed !important;
-    }
-    html.chat-page #app.theme--dark {
-        background: #1f1f1f !important;
-    }
+/* 电脑端：深色背景，隐藏原来的顶栏，标题栏放进聊天窗口里 */
+html.chat-desktop #app {
+    background: #2e2e2e !important;
+}
+html.chat-desktop #app.theme--dark {
+    background: #191919 !important;
+}
+html.chat-desktop .app-header {
+    display: none !important;
 }
 </style>
 
@@ -561,7 +601,7 @@ html.chat-page {
     --bubble-other-text: #191919;
     --text-secondary: #888;
     --divider: rgba(0, 0, 0, .08);
-    --input-bg: #f5f5f5;
+    --input-bg: #ffffff;
     --panel-bg: #f7f7f7;
 
     position: fixed;
@@ -572,18 +612,52 @@ html.chat-page {
     display: flex;
     flex-direction: column;
     background: var(--chat-bg);
+    /* 低于侧边菜单和弹窗 */
+    z-index: 1;
 }
-@media (min-width: 1100px) {
-    .chat {
-        top: 60px;
-        bottom: 16px;
-        left: calc(50% - 520px);
-        right: calc(50% - 520px);
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 16px rgba(0, 0, 0, .08);
-        border: 1px solid var(--divider);
-    }
+.chat--desktop {
+    --w: min(760px, calc(100vw - 48px));
+    --h: min(880px, calc(100vh - 48px));
+    top: calc((100vh - var(--h)) / 2);
+    left: calc((100vw - var(--w)) / 2);
+    right: auto;
+    bottom: auto;
+    width: var(--w);
+    height: var(--h);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 6px 30px rgba(0, 0, 0, .35);
+}
+.chat-header {
+    flex: none;
+    height: 56px;
+    padding: 0 12px 0 22px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-bottom: 1px solid var(--divider);
+    background: var(--chat-bg);
+}
+.chat-title {
+    font-size: 16px;
+    color: var(--bubble-other-text);
+}
+.chat-online {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.chat-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fa5151;
+}
+.chat-status--pending {
+    background: #f2a93b;
+}
+.chat-status--on {
+    background: #07c160;
 }
 .chat--dark {
     --chat-bg: #111111;
@@ -609,7 +683,8 @@ html.chat-page {
     padding: 12px 10px 4px;
 }
 .chat-empty {
-    margin-top: 30vh;
+    margin-top: 28vh;
+    line-height: 2;
     text-align: center;
     font-size: 13px;
     color: var(--text-secondary);
@@ -625,6 +700,7 @@ html.chat-page {
     position: absolute;
     right: 24px;
     bottom: 166px;
+    line-height: 1.4;
     padding: 6px 14px;
     border-radius: 16px;
     background: var(--bubble-other);
