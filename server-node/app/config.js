@@ -3,11 +3,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const defaultConfigPath = path.join(process.cwd(), 'config.json');
+const configPath = process.argv[2] || defaultConfigPath;
 
-if (!process.argv[2] && !fs.existsSync(defaultConfigPath)) {
-    console.log(`\x1b[93mConfig file "${defaultConfigPath}" does not exist.\x1b[39m`);
+// 指定的配置文件不存在时也自动生成，Docker 里挂载一个空目录就能直接用；
+// 通过参数指定配置文件时，聊天记录和上传的文件也放在配置文件所在的目录，方便持久化
+if (!fs.existsSync(configPath)) {
+    const dataDir = process.argv[2] ? path.dirname(configPath) : null;
+    console.log(`\x1b[93mConfig file "${configPath}" does not exist.\x1b[39m`);
     console.log('\x1b[93mA default config file is created and used. Check the descriptions in the repository\'s README.md to modify it.\x1b[39m');
-    fs.writeFileSync(defaultConfigPath, JSON.stringify({
+    fs.mkdirSync(path.dirname(configPath), {recursive: true});
+    fs.writeFileSync(configPath, JSON.stringify({
         server: {
             host: [],
             port: 9501,
@@ -15,16 +20,16 @@ if (!process.argv[2] && !fs.existsSync(defaultConfigPath)) {
             prefix: '',
             key: null,
             cert: null,
-            history: 10,
+            history: 1000,
             auth: false,
-            historyFile: null,
-            storageDir: null,
+            historyFile: dataDir && path.join(dataDir, 'history.json'),
+            storageDir: dataDir && path.join(dataDir, 'storage'),
         },
         text: {
-            limit: 4096,
+            limit: 100000,
         },
         file: {
-            expire: 3600,
+            expire: 604800,
             chunk: 2097152,
             limit: 0,
         },
@@ -56,7 +61,7 @@ if (!process.argv[2] && !fs.existsSync(defaultConfigPath)) {
  *  },
  * }}
  */
-const config = JSON.parse(fs.readFileSync(process.argv[2] || defaultConfigPath));
+const config = JSON.parse(fs.readFileSync(configPath));
 
 if (!config.server.prefix) {
     config.server.prefix = '';

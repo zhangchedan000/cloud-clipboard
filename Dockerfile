@@ -13,5 +13,7 @@ COPY --from=builder /app/client/dist/ /app/server-node/static/
 WORKDIR /app/server-node
 RUN npm install
 EXPOSE 9501
-CMD ["node", "main.js"]
+# 配置、聊天记录、上传的文件都放在 /app/data，挂载这个目录即可持久化（首次启动自动生成配置）
+VOLUME /app/data
+CMD ["node", "main.js", "/app/data/config.json"]
 
