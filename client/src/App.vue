@@ -97,7 +97,7 @@
             class="app-header"
         >
             <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
-            <v-toolbar-title class="app-title">云剪贴板<span v-if="$root.room">（{{$root.room}}）</span><small v-if="$root.device.length > 1" class="app-online">{{$root.device.length}} 台设备在线</small></v-toolbar-title>
+            <v-toolbar-title class="app-title">传输助手<span v-if="$root.room">（{{$root.room}}）</span><small v-if="$root.device.length > 1" class="app-online">{{$root.device.length}} 台设备在线</small></v-toolbar-title>
             <v-spacer></v-spacer>
             <v-tooltip left>
                 <template v-slot:activator="{ on }">

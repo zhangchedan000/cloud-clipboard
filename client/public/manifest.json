@@ -1,10 +1,12 @@
 {
-    "name": "云剪贴板",
-    "description": "在局域网内互传纯文本和文件的云剪贴板，即开即用的网页版，无须安装 APP",
-    "short_name": "云剪贴板",
+    "name": "传输助手",
+    "description": "在局域网内互传文字和文件的传输助手，即开即用的网页版，无须安装 APP",
+    "short_name": "传输助手",
     "start_url": "./",
     "scope": ".",
     "display": "standalone",
+    "background_color": "#f5f5f5",
+    "theme_color": "#ededed",
     "icons": [
         {
             "sizes": "any",
@@ -12,7 +14,17 @@
             "src": "favicon.svg"
         },
         {
-            "sizes": "32x32",
+            "sizes": "512x512",
+            "type": "image/png",
+            "src": "icon-512.png"
+        },
+        {
+            "sizes": "180x180",
+            "type": "image/png",
+            "src": "apple-touch-icon.png"
+        },
+        {
+            "sizes": "16x16 32x32 48x48",
             "src": "favicon.ico"
         }
     ]
