@@ -3,6 +3,7 @@ import path from 'node:path';
 import KoaRouter from '@koa/router';
 import { koaBody } from 'koa-body';
 import koaWebsocket from 'koa-websocket';
+import { UAParser } from 'ua-parser-js';
 
 import config from './config.js';
 import messageQueue from './message.js';
@@ -36,9 +37,16 @@ const saveHistory = () => fs.promises.writeFile(historyPath, JSON.stringify({
  */
 const messageMeta = ctx => {
     const sender = ctx.get('x-client-id');
+    const ua = UAParser(ctx.get('user-agent'));
+    const deviceType = ['mobile', 'tablet'].includes(ua.device.type) ? ua.device.type : 'desktop';
     return {
         time: Math.round(Date.now() / 1000),
         ...(/^[0-9a-z-]{8,64}$/i.test(sender) ? {sender} : {}),
+        deviceType,
+        deviceName: [
+            `${ua.device.vendor || ''} ${ua.device.model || ''}`.trim() || ua.os.name,
+            ua.browser.name,
+        ].filter(Boolean).join(' · '),
     };
 };
 

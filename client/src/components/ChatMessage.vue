@@ -1,9 +1,10 @@
 <template>
     <div class="msg" :class="{'msg--self': self}">
-        <div v-if="self" class="msg-avatar msg-avatar--self">
-            <v-icon dark>{{mdiAccount}}</v-icon>
+        <!-- 头像：手机显示手机、电脑显示电脑，每台设备一个颜色 -->
+        <div v-if="meta.sender" class="msg-avatar" :style="{background: avatarColor}" :title="meta.deviceName">
+            <v-icon dark>{{deviceIcon}}</v-icon>
         </div>
-        <!-- 其他设备发来的消息用「传输助手」的绿色文件夹头像 -->
+        <!-- 旧版本发的消息不知道是哪台设备，用「传输助手」的绿色文件夹头像 -->
         <svg v-else class="msg-avatar" viewBox="0 0 64 64">
             <rect width="64" height="64" rx="10" fill="#07c160"/>
             <path fill="#fff" d="M12 19a3 3 0 0 1 3-3h11.2a3 3 0 0 1 2.3 1.1l2.6 3.1H49a3 3 0 0 1 3 3V45a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"/>
@@ -90,8 +91,12 @@
 
 <script>
 import {
-    mdiAccount,
+    mdiCellphone,
+    mdiTablet,
+    mdiMonitor,
 } from '@mdi/js';
+
+const AVATAR_COLORS = ['#3e8bf7', '#f78a3e', '#a66df2', '#e8618c', '#33b26b', '#4bb3b8', '#f2a93b', '#5f7fa3', '#d9534f', '#8e6fd8'];
 const EXT_COLORS = [
     [/^(zip|rar|7z|tar|gz|bz2|xz|tgz)$/, '#a66df2'],
     [/^(pdf)$/, '#f25b5b'],
@@ -120,7 +125,6 @@ export default {
             imageError: false,
             touchTimer: null,
             touchPoint: null,
-            mdiAccount,
         };
     },
     computed: {
@@ -152,6 +156,14 @@ export default {
             const d = new Date(this.meta.expire * 1000);
             const hm = d.getHours().toString().padStart(2, 0) + ':' + d.getMinutes().toString().padStart(2, 0);
             return `将于 ${d.getMonth() + 1}月${d.getDate()}日 ${hm} `;
+        },
+        deviceIcon() {
+            return {mobile: mdiCellphone, tablet: mdiTablet}[this.meta.deviceType] || mdiMonitor;
+        },
+        avatarColor() {
+            let hash = 0;
+            for (const c of this.meta.sender) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+            return AVATAR_COLORS[hash % AVATAR_COLORS.length];
         },
         isLong() {
             const content = this.meta.content || '';
@@ -204,9 +216,6 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-.msg-avatar--self {
-    background: linear-gradient(135deg, #5b9bf8, #3772e6);
 }
 .msg-body {
     position: relative;
