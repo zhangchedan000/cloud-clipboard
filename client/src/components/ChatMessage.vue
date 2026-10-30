@@ -96,6 +96,10 @@ import {
     mdiMonitor,
 } from '@mdi/js';
 
+import {
+    clearSelection,
+} from '@/util.js';
+
 const AVATAR_COLORS = ['#3e8bf7', '#f78a3e', '#a66df2', '#e8618c', '#33b26b', '#4bb3b8', '#f2a93b', '#5f7fa3', '#d9534f', '#8e6fd8'];
 const EXT_COLORS = [
     [/^(zip|rar|7z|tar|gz|bz2|xz|tgz)$/, '#a66df2'],
@@ -172,6 +176,7 @@ export default {
     },
     methods: {
         openMenu(x, y) {
+            clearSelection();
             this.$emit('menu', {x, y, meta: this.meta});
         },
         // 手机上长按弹出菜单
@@ -381,5 +386,13 @@ export default {
     font-weight: bold;
     line-height: 18px;
     text-align: center;
+}
+/* 触屏上长按是弹菜单，不要触发系统的文字选择，复制走菜单里的「复制」 */
+@media (pointer: coarse) {
+    .msg-body,
+    .bubble-text {
+        -webkit-user-select: none;
+        user-select: none;
+    }
 }
 </style>

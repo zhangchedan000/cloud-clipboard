@@ -679,6 +679,11 @@ html.chat-desktop .app-header {
 .chat-inner {
     padding: 20px 28px 4px;
 }
+.chat--mobile {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
 .chat--mobile .chat-inner {
     padding: 12px 10px 4px;
 }
@@ -787,6 +792,8 @@ html.chat-desktop .app-header {
     padding: 8px 10px;
 }
 .chat-textarea-mobile {
+    -webkit-user-select: text;
+    user-select: text;
     flex: 1;
     min-height: 40px;
     max-height: 120px;

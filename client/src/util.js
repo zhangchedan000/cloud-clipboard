@@ -51,6 +51,11 @@ export function formatChatTime(timestamp) {
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${hm}`;
 }
 
+export function clearSelection() {
+    const selection = window.getSelection && window.getSelection();
+    if (selection) selection.removeAllRanges();
+}
+
 // 局域网 http 下 navigator.clipboard 不可用，退回到 execCommand
 export function copyToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
@@ -61,11 +66,18 @@ export function copyToClipboard(text) {
         textarea.value = text;
         textarea.setAttribute('readonly', '');
         textarea.style.position = 'fixed';
+        textarea.style.top = '0';
         textarea.style.opacity = '0';
+        // 16px 以上 iOS 才不会因为聚焦而放大页面
+        textarea.style.fontSize = '16px';
         document.body.appendChild(textarea);
         textarea.select();
+        textarea.setSelectionRange(0, text.length);
         const ok = document.execCommand('copy');
+        textarea.blur();
         document.body.removeChild(textarea);
+        // 复制完清掉选区，否则手机上会残留整页被选中的状态
+        clearSelection();
         ok ? resolve() : reject(new Error('浏览器不允许复制'));
     });
 }
