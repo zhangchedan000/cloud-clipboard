@@ -1,8 +1,8 @@
 <template>
     <div class="msg" :class="{'msg--self': self}">
         <!-- 头像：手机显示手机、电脑显示电脑，每台设备一个颜色 -->
-        <div v-if="meta.sender" class="msg-avatar" :style="{background: avatarColor}" :title="meta.deviceName">
-            <v-icon dark>{{deviceIcon}}</v-icon>
+        <div v-if="meta.sender" class="msg-avatar" :style="{background: avatarColor + '1f', color: avatarColor}" :title="meta.deviceName">
+            <v-icon size="22" :color="avatarColor">{{deviceIcon}}</v-icon>
         </div>
         <!-- 旧版本发的消息不知道是哪台设备，用「传输助手」的绿色文件夹头像 -->
         <svg v-else class="msg-avatar" viewBox="0 0 64 64">
@@ -100,7 +100,8 @@ import {
     clearSelection,
 } from '@/util.js';
 
-const AVATAR_COLORS = ['#3e8bf7', '#f78a3e', '#a66df2', '#e8618c', '#33b26b', '#4bb3b8', '#f2a93b', '#5f7fa3', '#d9534f', '#8e6fd8'];
+// 浅色底 + 同色系图标，跟微信的柔和配色一致，不用大块的纯色
+const AVATAR_COLORS = ['#2f7ae5', '#07a35a', '#e0822d', '#7a5ce0', '#1a9fa8', '#c9567d', '#5a7590', '#b58a1e'];
 const EXT_COLORS = [
     [/^(zip|rar|7z|tar|gz|bz2|xz|tgz)$/, '#a66df2'],
     [/^(pdf)$/, '#f25b5b'],
@@ -165,9 +166,13 @@ export default {
             return {mobile: mdiCellphone, tablet: mdiTablet}[this.meta.deviceType] || mdiMonitor;
         },
         avatarColor() {
-            let hash = 0;
-            for (const c of this.meta.sender) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
-            return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+            // FNV-1a 再做一次 murmur 的收尾混合，让低位也打散，不同设备不容易撞到同一个颜色
+            let hash = 0x811c9dc5;
+            for (const c of this.meta.sender) hash = Math.imul(hash ^ c.charCodeAt(0), 0x01000193);
+            hash = Math.imul(hash ^ hash >>> 16, 0x85ebca6b);
+            hash = Math.imul(hash ^ hash >>> 13, 0xc2b2ae35);
+            hash ^= hash >>> 16;
+            return AVATAR_COLORS[(hash >>> 0) % AVATAR_COLORS.length];
         },
         isLong() {
             const content = this.meta.content || '';
@@ -221,6 +226,7 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .04);
 }
 .msg-body {
     position: relative;
