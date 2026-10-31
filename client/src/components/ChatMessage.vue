@@ -1,5 +1,5 @@
 <template>
-    <div class="msg" :class="{'msg--self': self}">
+    <div class="msg" :class="{'msg--self': self}" :data-msg-id="meta.id">
         <!-- 头像：手机显示手机、电脑显示电脑，每台设备一个颜色 -->
         <div v-if="meta.sender" class="msg-avatar" :style="{background: avatarColor + '1f', color: avatarColor}" :title="meta.deviceName">
             <v-icon size="22" :color="avatarColor">{{deviceIcon}}</v-icon>
@@ -189,6 +189,9 @@ export default {
             const t = e.touches[0];
             this.touchPoint = {x: t.clientX, y: t.clientY};
             clearTimeout(this.touchTimer);
+            // 长按文字交给系统选择（带前后两个拖动把手），选中后的菜单由聊天页处理
+            this.nativeSelect = this.meta.type === 'text' && !!e.target.closest('.bubble-text');
+            if (this.nativeSelect) return;
             this.touchTimer = setTimeout(() => {
                 this.touchTimer = null;
                 if (navigator.vibrate) navigator.vibrate(10);
@@ -201,9 +204,9 @@ export default {
         },
         touchEnd(e) {
             // 长按已经弹出菜单时，不要再触发点击（比如下载）
-            if (!this.touchTimer && this.touchPoint) {
+            if (!this.touchTimer && this.touchPoint && !this.nativeSelect) {
                 e.preventDefault();
-            } else if (this.meta.type === 'text' && this.touchPoint) {
+            } else if (this.meta.type === 'text' && this.touchPoint && window.getSelection().isCollapsed) {
                 // 跟微信一样，双击文字全屏打开，可以自由选择复制
                 const now = Date.now();
                 if (now - (this.lastTap || 0) < 300) {
@@ -216,6 +219,7 @@ export default {
             }
             this.touchCancel();
             this.touchPoint = null;
+            this.nativeSelect = false;
         },
     },
 };
@@ -405,12 +409,15 @@ export default {
     line-height: 18px;
     text-align: center;
 }
-/* 触屏上长按是弹菜单，不要触发系统的文字选择，复制走菜单里的「复制」 */
+/* 触屏上只有文字内容能被系统选中（长按出前后拖动把手），其余部分长按弹菜单 */
 @media (pointer: coarse) {
-    .msg-body,
-    .bubble-text {
+    .msg-body {
         -webkit-user-select: none;
         user-select: none;
+    }
+    .bubble-text {
+        -webkit-user-select: text;
+        user-select: text;
     }
 }
 </style>
