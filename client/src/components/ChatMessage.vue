@@ -19,7 +19,7 @@
             @touchcancel="touchCancel"
         >
             <!-- 文本 -->
-            <div v-if="meta.type === 'text'" class="bubble bubble--text">
+            <div v-if="meta.type === 'text'" class="bubble bubble--text" @dblclick="$emit('read', meta)">
                 <div
                     class="bubble-text"
                     :class="{'bubble-text--collapsed': isLong && !expanded}"
@@ -201,7 +201,19 @@ export default {
         },
         touchEnd(e) {
             // 长按已经弹出菜单时，不要再触发点击（比如下载）
-            if (!this.touchTimer && this.touchPoint) e.preventDefault();
+            if (!this.touchTimer && this.touchPoint) {
+                e.preventDefault();
+            } else if (this.meta.type === 'text' && this.touchPoint) {
+                // 跟微信一样，双击文字全屏打开，可以自由选择复制
+                const now = Date.now();
+                if (now - (this.lastTap || 0) < 300) {
+                    e.preventDefault();
+                    this.lastTap = 0;
+                    this.$emit('read', this.meta);
+                } else {
+                    this.lastTap = now;
+                }
+            }
             this.touchCancel();
             this.touchPoint = null;
         },

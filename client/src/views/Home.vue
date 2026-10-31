@@ -1,5 +1,5 @@
 <template>
-    <div class="chat" :class="{'chat--dark': $vuetify.theme.dark, 'chat--mobile': mobile, 'chat--desktop': !mobile}">
+    <div class="chat" :class="{'chat--dark': $vuetify.theme.dark, 'chat--mobile': mobile, 'chat--desktop': !mobile, 'chat--reading': !!reader}">
         <!-- 电脑端：和微信网页版文件传输助手一样，是深色背景上居中的一个窗口，标题栏在窗口里 -->
         <div v-if="!mobile" class="chat-header">
             <span class="chat-title">传输助手<template v-if="$root.room">（{{$root.room}}）</template></span>
@@ -39,6 +39,7 @@
                         :self="item.self"
                         @menu="openMenu"
                         @preview="previewImage"
+                        @read="readText"
                         @media-load="onMediaLoad"
                     ></chat-message>
                 </template>
@@ -147,6 +148,16 @@
             </v-list>
         </v-menu>
 
+        <!-- 全屏看文字（双击或长按「选择文字」），这里可以用系统的选择框自由选择复制 -->
+        <div v-if="reader" class="chat-reader" @click.self="reader = null">
+            <div class="chat-reader-bar">
+                <v-btn icon @click="reader = null"><v-icon>{{mdiClose}}</v-icon></v-btn>
+                <v-spacer></v-spacer>
+                <v-btn text color="primary" @click="copy(reader.text)">复制全部</v-btn>
+            </div>
+            <div class="chat-reader-text" v-html="reader.html" v-linkified></div>
+        </div>
+
         <!-- 看大图 -->
         <v-overlay :value="!!viewer" opacity="0.92" z-index="20" @click.native="viewer = null">
             <img v-if="viewer" :src="viewer.url" :alt="viewer.name" class="chat-viewer-img">
@@ -169,6 +180,7 @@ import {
     formatChatTime,
     copyToClipboard,
     unescapeHtml,
+    clearSelection,
 } from '@/util.js';
 import {
     uploadFile,
@@ -215,6 +227,7 @@ export default {
                 meta: null,
             },
             viewer: null,
+            reader: null,
             mdiFolderOutline,
             mdiPlusCircleOutline,
             mdiCloseCircleOutline,
@@ -273,6 +286,7 @@ export default {
             }
             if (meta.type === 'text') {
                 actions.push({label: '复制', run: () => this.copy(unescapeHtml(meta.content))});
+                actions.push({label: '选择文字', run: () => this.readText(meta)});
             }
             if (meta.type === 'file' && Date.now() / 1000 <= meta.expire) {
                 const url = `file/${meta.cache}/${encodeURIComponent(meta.name)}`;
@@ -517,6 +531,13 @@ export default {
             a.click();
             document.body.removeChild(a);
         },
+        readText(meta) {
+            clearSelection();
+            this.reader = {
+                html: meta.content.replace(/\n/g, '<br>'),
+                text: unescapeHtml(meta.content),
+            };
+        },
         previewImage(meta) {
             this.viewer = {
                 url: `file/${meta.cache}/${encodeURIComponent(meta.name)}`,
@@ -537,6 +558,7 @@ export default {
         },
         onKeydown(e) {
             if (e.key === 'Escape' && this.viewer) this.viewer = null;
+            if (e.key === 'Escape' && this.reader) this.reader = null;
             // 电脑端在页面任意位置打字时，自动聚焦到输入框
             if (!this.mobile && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 const active = document.activeElement;
@@ -854,6 +876,45 @@ html.chat-desktop .app-header {
     color: #fff;
     font-size: 18px;
     letter-spacing: 1px;
+}
+
+/* 全屏看文字 */
+.chat-reader {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+}
+.chat--reading {
+    /* .chat 自己是一个层叠上下文，全屏看文字时要整体抬到顶栏上面 */
+    z-index: 30 !important;
+}
+.chat--dark .chat-reader {
+    background: #191919;
+}
+.chat-reader-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    padding-top: calc(4px + env(safe-area-inset-top));
+}
+.chat-reader-text {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px calc(32px + env(safe-area-inset-bottom));
+    font-size: 20px;
+    line-height: 1.7;
+    word-break: break-word;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    -webkit-touch-callout: default;
+}
+.chat-reader-text >>> a {
+    color: #576b95;
+    text-decoration: none;
 }
 
 /* 看大图 */
