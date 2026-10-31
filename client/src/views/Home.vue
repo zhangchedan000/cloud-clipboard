@@ -67,6 +67,9 @@
                     ref="textarea"
                     v-model="text"
                     class="chat-textarea"
+                    name="chat-message"
+                    autocomplete="off"
+                    spellcheck="false"
                     :maxlength="$root.config.text.limit || null"
                     @keydown.enter="onEnter"
                 ></textarea>
@@ -90,6 +93,8 @@
                     v-model="text"
                     rows="1"
                     class="chat-textarea-mobile"
+                    name="chat-message"
+                    autocomplete="off"
                     enterkeyhint="send"
                     :maxlength="$root.config.text.limit || null"
                     @keydown.enter="onEnter"
