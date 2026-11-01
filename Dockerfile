@@ -6,7 +6,8 @@ WORKDIR /app/client
 RUN npm install
 RUN npm run build
 
-FROM node:22.12-alpine3.21
+# 运行时用 Node 18：部分刷机软路由（如 QSDK 5.4 内核）上 Node 22 一启动就崩（Check failed: 0 == ret）
+FROM node:18-alpine
 ENV NODE_OPTIONS=--openssl-legacy-provider
 COPY . /app
 COPY --from=builder /app/client/dist/ /app/server-node/static/
