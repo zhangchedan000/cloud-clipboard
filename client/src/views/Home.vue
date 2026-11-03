@@ -216,6 +216,7 @@ const TIME_GAP = 300;
 let uploadKey = 0;
 
 const coarsePointer = matchMedia('(pointer: coarse)').matches;
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 export default {
     components: {
@@ -579,9 +580,12 @@ export default {
             const barHeight = 74;
             const bottomLimit = window.innerHeight - 64;
             let y;
+            const above = bubble.top - 10 - barHeight > 8;
+            const below = bubble.bottom + 10 + barHeight < bottomLimit;
             // 跟微信一样放在整条消息的上面或下面，都放不下（消息很长）就跟着选区走
-            if (bubble.top - 10 - barHeight > 8) y = bubble.top - 10 - barHeight;
-            else if (bubble.bottom + 10 + barHeight < bottomLimit) y = bubble.bottom + 10;
+            // iOS 会在选区上方弹自己的「拷贝」菜单，我们的菜单优先放下面，免得叠在一起
+            if (IS_IOS ? below : above) y = IS_IOS ? bubble.bottom + 10 : bubble.top - 10 - barHeight;
+            else if (IS_IOS ? above : below) y = IS_IOS ? bubble.top - 10 - barHeight : bubble.bottom + 10;
             else y = rect.bottom + 14 + barHeight < bottomLimit ? rect.bottom + 14 : Math.max(8, rect.top - 14 - barHeight);
             const id = this.selEl.closest('[data-msg-id]').dataset.msgId;
             const half = 130;

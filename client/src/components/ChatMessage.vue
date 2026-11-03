@@ -12,7 +12,7 @@
         </svg>
         <div
             class="msg-body"
-            @contextmenu.prevent="openMenu($event.clientX, $event.clientY)"
+            @contextmenu="onContextMenu"
             @touchstart.passive="touchStart"
             @touchmove.passive="touchCancel"
             @touchend="touchEnd"
@@ -101,6 +101,7 @@ import {
 } from '@/util.js';
 
 // 浅色底 + 同色系图标，跟微信的柔和配色一致，不用大块的纯色
+const COARSE = matchMedia('(pointer: coarse)').matches;
 const AVATAR_COLORS = ['#2f7ae5', '#07a35a', '#e0822d', '#7a5ce0', '#1a9fa8', '#c9567d', '#5a7590', '#b58a1e'];
 const EXT_COLORS = [
     [/^(zip|rar|7z|tar|gz|bz2|xz|tgz)$/, '#a66df2'],
@@ -183,6 +184,12 @@ export default {
         openMenu(x, y) {
             clearSelection();
             this.$emit('menu', {x, y, meta: this.meta});
+        },
+        onContextMenu(e) {
+            // iOS 长按文字也会触发 contextmenu，这里放行，让系统出前后拖动的选择把手
+            if (this.nativeSelect || (COARSE && this.meta.type === 'text' && e.target.closest('.bubble-text'))) return;
+            e.preventDefault();
+            this.openMenu(e.clientX, e.clientY);
         },
         // 手机上长按弹出菜单
         touchStart(e) {
@@ -415,9 +422,17 @@ export default {
         -webkit-user-select: none;
         user-select: none;
     }
+    /* iOS 上 -webkit-touch-callout: none 会连长按选字一起禁掉，文字这里要恢复 */
     .bubble-text {
-        -webkit-user-select: text;
-        user-select: text;
+        -webkit-user-select: text !important;
+        user-select: text !important;
+        -webkit-touch-callout: default;
+        caret-color: #07c160;
+    }
+    /* 选中颜色跟微信一样用绿色 */
+    .bubble-text::selection,
+    .bubble-text >>> *::selection {
+        background: rgba(7, 193, 96, .28);
     }
 }
 </style>
