@@ -196,7 +196,7 @@ export default {
             const t = e.touches[0];
             this.touchPoint = {x: t.clientX, y: t.clientY};
             clearTimeout(this.touchTimer);
-            // 长按文字交给系统选择（带前后两个拖动把手），选中后的菜单由聊天页处理
+            // 长按文字完全交给系统：前后两个拖动把手和拷贝菜单都用手机自带的
             this.nativeSelect = this.meta.type === 'text' && !!e.target.closest('.bubble-text');
             if (this.nativeSelect) return;
             this.touchTimer = setTimeout(() => {

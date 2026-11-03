@@ -148,14 +148,6 @@
             </v-list>
         </v-menu>
 
-        <!-- 手机上选中文字后的菜单，放在选区下面，不挡系统自己的拷贝菜单 -->
-        <div v-if="selBar" class="chat-selbar" :style="{left: selBar.x + 'px', top: selBar.y + 'px'}" @touchstart.stop @mousedown.prevent>
-            <div class="chat-selbar-item" @click="selAction('copy')"><v-icon dark>{{mdiContentCopy}}</v-icon>复制</div>
-            <div class="chat-selbar-item" @click="selAction('all')"><v-icon dark>{{mdiSelectAll}}</v-icon>全选</div>
-            <div class="chat-selbar-item" @click="selAction('read')"><v-icon dark>{{mdiArrowExpand}}</v-icon>全屏</div>
-            <div class="chat-selbar-item" @click="selAction('delete')"><v-icon dark>{{mdiDeleteOutline}}</v-icon>删除</div>
-        </div>
-
         <!-- 全屏看文字（双击或长按「选择文字」），这里可以用系统的选择框自由选择复制 -->
         <div v-if="reader" class="chat-reader" @click.self="reader = null">
             <div class="chat-reader-bar">
@@ -204,10 +196,6 @@ import {
     mdiClose,
     mdiDeleteSweepOutline,
     mdiDotsHorizontal,
-    mdiContentCopy,
-    mdiSelectAll,
-    mdiArrowExpand,
-    mdiDeleteOutline,
 } from '@mdi/js';
 
 // 两条消息间隔超过 5 分钟才显示时间，和微信一样
@@ -216,7 +204,6 @@ const TIME_GAP = 300;
 let uploadKey = 0;
 
 const coarsePointer = matchMedia('(pointer: coarse)').matches;
-const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 export default {
     components: {
@@ -241,11 +228,6 @@ export default {
             },
             viewer: null,
             reader: null,
-            selBar: null,
-            mdiContentCopy,
-            mdiSelectAll,
-            mdiArrowExpand,
-            mdiDeleteOutline,
             mdiFolderOutline,
             mdiPlusCircleOutline,
             mdiCloseCircleOutline,
@@ -346,7 +328,6 @@ export default {
             return null;
         },
         onScroll() {
-            if (this.selBar) this.placeSelBar();
             const list = this.$refs.list;
             this.atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
             if (this.atBottom) this.unread = 0;
@@ -550,66 +531,6 @@ export default {
             a.click();
             document.body.removeChild(a);
         },
-        // ---------- 手机上选中文字（跟微信一样：长按整条选中，拖把手调整范围） ----------
-        onSelectionChange() {
-            if (!this.mobile || this.reader) return;
-            const sel = window.getSelection();
-            const node = sel.rangeCount && !sel.isCollapsed ? sel.anchorNode : null;
-            const el = node && (node.nodeType === 1 ? node : node.parentElement).closest('.chat-list .bubble-text');
-            clearTimeout(this.selTimer);
-            if (!el) {
-                // 稍微晚一点再收起，点菜单按钮时选区可能先被系统取消了
-                this.selTimer = setTimeout(() => {
-                    this.selBar = null;
-                    this.selEl = null;
-                }, 300);
-                return;
-            }
-            if (this.selEl !== el) {
-                this.selEl = el;
-                sel.setBaseAndExtent(el, 0, el, el.childNodes.length);
-            }
-            this.selText = sel.toString();
-            this.selTimer = setTimeout(this.placeSelBar, 120);
-        },
-        placeSelBar() {
-            const sel = window.getSelection();
-            if (!this.selEl || !sel.rangeCount) return;
-            const rect = sel.getRangeAt(0).getBoundingClientRect();
-            const bubble = this.selEl.closest('.bubble').getBoundingClientRect();
-            const barHeight = 74;
-            const bottomLimit = window.innerHeight - 64;
-            let y;
-            const above = bubble.top - 10 - barHeight > 8;
-            const below = bubble.bottom + 10 + barHeight < bottomLimit;
-            // 跟微信一样放在整条消息的上面或下面，都放不下（消息很长）就跟着选区走
-            // iOS 会在选区上方弹自己的「拷贝」菜单，我们的菜单优先放下面，免得叠在一起
-            if (IS_IOS ? below : above) y = IS_IOS ? bubble.bottom + 10 : bubble.top - 10 - barHeight;
-            else if (IS_IOS ? above : below) y = IS_IOS ? bubble.top - 10 - barHeight : bubble.bottom + 10;
-            else y = rect.bottom + 14 + barHeight < bottomLimit ? rect.bottom + 14 : Math.max(8, rect.top - 14 - barHeight);
-            const id = this.selEl.closest('[data-msg-id]').dataset.msgId;
-            const half = 130;
-            this.selBar = {
-                x: Math.max(half + 8, Math.min(window.innerWidth - half - 8, rect.left + rect.width / 2)),
-                y,
-                meta: this.$root.received.find(e => String(e.id) === id),
-            };
-        },
-        selAction(action) {
-            const {meta} = this.selBar || {};
-            const el = this.selEl;
-            if (action === 'all' && el) {
-                window.getSelection().setBaseAndExtent(el, 0, el, el.childNodes.length);
-                return;
-            }
-            const text = this.selText;
-            this.selBar = null;
-            this.selEl = null;
-            clearSelection();
-            if (action === 'copy') this.copy(text);
-            if (action === 'read' && meta) this.readText(meta);
-            if (action === 'delete' && meta) this.deleteMessage(meta);
-        },
         readText(meta) {
             clearSelection();
             this.reader = {
@@ -660,7 +581,6 @@ export default {
             window[method]('mousemove', this.resetDrag);
             document[method]('paste', this.onPaste);
             document[method]('keydown', this.onKeydown);
-            document[method]('selectionchange', this.onSelectionChange);
         },
     },
     activated() {
@@ -956,33 +876,6 @@ html.chat-desktop .app-header {
     color: #fff;
     font-size: 18px;
     letter-spacing: 1px;
-}
-
-/* 手机上选中文字后的菜单，微信那种深色横条 */
-.chat-selbar {
-    position: fixed;
-    z-index: 25;
-    display: flex;
-    transform: translateX(-50%);
-    padding: 6px 4px;
-    border-radius: 8px;
-    background: #4c4c4c;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
-    -webkit-user-select: none;
-    user-select: none;
-}
-.chat-selbar-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 62px;
-    padding: 4px 0;
-    color: #fff;
-    font-size: 13px;
-}
-.chat-selbar-item .v-icon {
-    margin-bottom: 4px;
-    font-size: 22px;
 }
 
 /* 全屏看文字 */
