@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+const SINGLE_UPLOAD_LIMIT = 1024 * 1024 * 1024;
+
 /**
  * 上传一个文件，小文件直接表单上传，大文件分片上传
  * @param {File} file
@@ -7,7 +9,9 @@ import axios from 'axios';
  */
 export async function uploadFile(file, {room, chunkSize, onProgress}) {
     const params = new URLSearchParams([['room', room]]);
-    if (file.size < chunkSize) {
+    // 局域网里没有反向代理的请求体限制，1GB 以内整个文件一次发完
+    // iPhone 上分片发视频会卡在第一片之后，一次发反而稳定（跟发图片一样）
+    if (file.size < Math.max(chunkSize, SINGLE_UPLOAD_LIMIT)) {
         const fd = new FormData;
         fd.set('file', file);
         await axios.postForm('upload', fd, {

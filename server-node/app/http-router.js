@@ -175,6 +175,8 @@ router.post(
         formidable: {
             maxFields: 1,
             multiples: false,
+            // 默认只收 200MB，手机发的视频整个走这里，跟总大小限制保持一致
+            maxFileSize: config.file.limit,
         },
     }),
     async ctx => {
