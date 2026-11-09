@@ -20,12 +20,22 @@ export async function uploadFile(file, {room, chunkSize, onProgress}) {
     const uuid = response.data.result.uuid;
     let uploadedSize = 0;
     while (uploadedSize < file.size) {
-        const chunk = file.slice(uploadedSize, uploadedSize + chunkSize);
-        await axios.post(`upload/chunk/${uuid}`, chunk, {
-            headers: {'Content-Type': 'application/octet-stream'},
-            onUploadProgress: e => onProgress(uploadedSize + e.loaded),
-        });
-        uploadedSize += chunk.size;
+        // 先把这一段读进内存再发：iPhone 上直接发 Blob 切片，从第二段开始会卡住不动（相册里的视频尤其明显）
+        const chunk = await file.slice(uploadedSize, uploadedSize + chunkSize).arrayBuffer();
+        for (let attempt = 1; ; attempt++) {
+            try {
+                await axios.post(`upload/chunk/${uuid}`, chunk, {
+                    headers: {'Content-Type': 'application/octet-stream'},
+                    timeout: 60000,
+                    onUploadProgress: e => onProgress(uploadedSize + e.loaded),
+                });
+                break;
+            } catch (error) {
+                // 超时或断网重试，服务器明确拒绝（4xx）就不重试了
+                if (attempt >= 3 || error.response) throw error;
+            }
+        }
+        uploadedSize += chunk.byteLength;
     }
     await axios.post(`upload/finish/${uuid}`, null, {params});
 }
