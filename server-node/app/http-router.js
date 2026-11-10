@@ -310,10 +310,10 @@ router.get(['/file/:uuid([0-9a-f]{32})', '/file/:uuid([0-9a-f]{32})/:filename'],
     if (!file || Date.now() / 1000 > file.expireTime || !fs.existsSync(file.path)) {
         return ctx.status = 404;
     }
-    ctx.attachment(file.name, {type: 'inline'});
+    ctx.attachment(file.name, {type: ctx.query.download ? 'attachment' : 'inline'});
     const fileSize = (await fs.promises.stat(file.path)).size;
     // https://github.com/xtx1130/koa-partial-content/blob/master/index.js
-    if (ctx.header.range && file.name.match(/\.(mp3|mp4|flv|webm|ogv|mpg|mpg|wav|ogg|opus|m4a|flac)$/gi)) {
+    if (ctx.header.range && file.name.match(/\.(mp3|mp4|m4v|mov|flv|webm|ogv|mpg|wav|ogg|opus|m4a|flac)$/gi)) {
         try {
             const m = /^bytes=(\d+)-(\d*)$/.exec(ctx.request.header.range || 'bytes=0-');
             if (!m) throw new Error;

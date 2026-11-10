@@ -525,7 +525,8 @@ export default {
         },
         download(url, name) {
             const a = document.createElement('a');
-            a.href = url;
+            // 带上 download=1 让服务器按附件发，iPhone 上才会下载而不是直接打开播放
+            a.href = url + '?download=1';
             a.download = name;
             document.body.appendChild(a);
             a.click();

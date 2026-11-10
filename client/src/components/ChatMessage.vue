@@ -45,8 +45,20 @@
             </div>
 
             <!-- 视频 -->
-            <div v-else-if="meta.type === 'file' && isVideo && !expired" class="bubble-media">
-                <video :src="fileUrl" controls preload="metadata" @loadedmetadata="$emit('media-load')"></video>
+            <!-- 手机拍的 .mov 也直接预览；放不了（比如电脑不支持 HEVC）就退回成普通文件 -->
+            <div v-else-if="meta.type === 'file' && isVideo && !videoError && !expired" class="bubble-media bubble-media--video">
+                <video
+                    :src="fileUrl + '#t=0.1'"
+                    controls
+                    playsinline
+                    preload="metadata"
+                    @loadedmetadata="$emit('media-load')"
+                    @error="videoError = true"
+                ></video>
+                <!-- 手机上视频控件里没有下载按钮，单独放一个 -->
+                <a class="media-download" :href="fileUrl + '?download=1'" :download="meta.name">
+                    <v-icon size="16">{{mdiDownload}}</v-icon>下载 · {{meta.size | prettyFileSize}}
+                </a>
             </div>
 
             <!-- 其他文件，以及上传中的文件 -->
@@ -54,7 +66,7 @@
                 v-else
                 class="bubble bubble--file"
                 :class="{'bubble--expired': expired}"
-                :href="downloadable ? fileUrl : null"
+                :href="downloadable ? fileUrl + '?download=1' : null"
                 :download="downloadable ? meta.name : null"
             >
                 <div class="file-info">
@@ -94,6 +106,7 @@ import {
     mdiCellphone,
     mdiTablet,
     mdiMonitor,
+    mdiDownload,
 } from '@mdi/js';
 
 import {
@@ -129,6 +142,8 @@ export default {
         return {
             expanded: false,
             imageError: false,
+            videoError: false,
+            mdiDownload,
             touchTimer: null,
             touchPoint: null,
         };
@@ -150,7 +165,7 @@ export default {
             return !!this.meta.thumbnail || /\.(png|jpe?g|gif|webp|bmp|svg|avif|ico)$/i.test(this.meta.name);
         },
         isVideo() {
-            return /\.(mp4|webm|ogv)$/i.test(this.meta.name);
+            return /\.(mp4|webm|ogv|mov|m4v)$/i.test(this.meta.name);
         },
         expired() {
             return this.meta.type === 'file' && this.$root.date.getTime() / 1000 > this.meta.expire;
@@ -338,6 +353,27 @@ export default {
 .bubble-media video {
     max-width: min(320px, 100%);
     cursor: auto;
+}
+.bubble-media--video {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.msg--self .bubble-media--video {
+    align-items: flex-end;
+}
+.media-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-top: 6px;
+    color: #576b95 !important;
+    font-size: 12px;
+    line-height: 16px;
+    text-decoration: none;
+}
+.media-download .v-icon {
+    color: inherit;
 }
 
 .bubble--file {
