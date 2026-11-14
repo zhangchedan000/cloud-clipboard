@@ -310,7 +310,13 @@ router.get(['/file/:uuid([0-9a-f]{32})', '/file/:uuid([0-9a-f]{32})/:filename'],
     if (!file || Date.now() / 1000 > file.expireTime || !fs.existsSync(file.path)) {
         return ctx.status = 404;
     }
-    ctx.attachment(file.name, {type: ctx.query.download ? 'attachment' : 'inline'});
+    // 只有点下载时才带文件名的 Content-Disposition；页面里直接播放/显示时不带，
+    // 否则 IDM 这类下载器一看到视频的文件名就会自动弹出下载
+    if (ctx.query.download) {
+        ctx.attachment(file.name);
+    } else {
+        ctx.type = path.extname(file.name) || 'application/octet-stream';
+    }
     const fileSize = (await fs.promises.stat(file.path)).size;
     // https://github.com/xtx1130/koa-partial-content/blob/master/index.js
     if (ctx.header.range && file.name.match(/\.(mp3|mp4|m4v|mov|flv|webm|ogv|mpg|wav|ogg|opus|m4a|flac)$/gi)) {

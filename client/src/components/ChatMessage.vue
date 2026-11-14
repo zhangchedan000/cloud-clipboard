@@ -55,8 +55,8 @@
                     @loadedmetadata="$emit('media-load')"
                     @error="videoError = true"
                 ></video>
-                <!-- 手机上视频控件里没有下载按钮，单独放一个 -->
-                <a class="media-download" :href="fileUrl + '?download=1'" :download="meta.name">
+                <!-- 电脑上用视频控件右下角「⋮」里自带的下载；只有手机控件里没有下载，才单独放一个 -->
+                <a v-if="coarse" class="media-download" :href="fileUrl + '?download=1'" :download="meta.name">
                     <v-icon size="16">{{mdiDownload}}</v-icon>下载 · {{meta.size | prettyFileSize}}
                 </a>
             </div>
@@ -143,6 +143,7 @@ export default {
             expanded: false,
             imageError: false,
             videoError: false,
+            coarse: COARSE,
             mdiDownload,
             touchTimer: null,
             touchPoint: null,
